@@ -20,8 +20,8 @@ const fastify = require('fastify')({
         file: path.join(__dirname, 'logs',  logFileName),
     },
     https: {
-        key: readFileSync(path.join(__dirname, 'server.key')),
-        cert: readFileSync(path.join(__dirname, 'server.crt'))
+        key: readFileSync(process.env['FASTIFY_SSL_KEY']),
+        cert: readFileSync(process.env['FASTIFY_SSL_CERT'])
     }
 })
 
@@ -63,7 +63,7 @@ fastify.route({
 
         if (!validateTOTPToken(token)) {
             fastify.log.error(`<${request.ip}> invalid token provided`);
-            reply.status(502).send(); return;
+            reply.status(401).send(); return;
         }
 
         fastify.log.info(`<${request.ip}> validated TOTP token`);
@@ -90,12 +90,12 @@ fastify.route({
         responseData.then((data) => {
             fastify.log.info(`<${request.ip}> Executed ${task_type.toUpperCase()} ${task}`);
             if (data) {
-                fasitfy.log.info(`<${request.ip}> ${data}`)
+                fastify.log.info(`<${request.ip}> ${data}`)
             }
-            reply.send({ status: 'success' }); return;
+            reply.send({ status: 'success', stdout: data.stdout, stderr: data.stderr }); return;
         }).catch((err) => {
             fastify.log.error(`<${request.ip}> Encountered error: \n${err}`);
-            reply.send({ status: 'error' }); return;
+            reply.status(502).send({ status: 'error', stdout: err.stdout, stderr: err.stderr }); return;
         });
     }
 });
@@ -125,7 +125,7 @@ function loadTaskFile(taskFileName) {
 
 function validateTOTPToken(tokenToValidate) {
     try {
-        const calculatedToken = totp(process.env['N8N_TOTP_SECRET_PASSPHRASE'], tokenOpts);
+        const calculatedToken = totp(process.env['N8N_TOTP_SECRET_PASSPHRASE'], { ...tokenOpts });
         fastify.log.debug(`Token to validate ${tokenToValidate} type: ${typeof tokenToValidate}`);
         fastify.log.debug(`Calculated TOTP token ${calculatedToken} type: ${typeof calculatedToken}`);
         return tokenToValidate === calculatedToken;
@@ -157,7 +157,7 @@ function spawnHHJSTask(command) {
                 timeout: process.env['HHJS_TASK_TIMEOUT_MINUTES'] * (60 * 1000), //input is milliseconds, timeout after 25min 
             }
         };
-        return spawnTask(...hhjsTaskParams);
+        return spawnTask(hhjsTaskParams);
     }
     fastify.log.error(`${command} not found in HHJS task list`)
     return null
@@ -175,13 +175,13 @@ function spawnFusionTask(fpgm) {
         }
     }
 
-    return spawnTask(...fpgmTaskParams);
+    return spawnTask(fpgmTaskParams);
     }
 
     fastify.log.error(`${fpgm} not found in fpgm task list`);
 }
 
-function spawnTask(command, args, spawnOptions) {
+function spawnTask({command, args, spawnOptions}) {
     return new Promise((resolve, reject) => {
         const buffer = [];
         const errBuffer = [];

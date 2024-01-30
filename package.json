@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "dotenv": "^16.3.1",
     "fastify": "^4.24.3",
     "totp-generator": "^0.0.14",
     "winston": "^3.11.0"
