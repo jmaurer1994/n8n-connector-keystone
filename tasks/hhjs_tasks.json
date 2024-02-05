@@ -2,5 +2,9 @@
     "EMPAUTOPS": {
         "command": "empautops.bat",
         "args": null
+    },
+    "FSAUTO": {
+        "command": "fsauto.bat",
+        "args": null
     }
 }
