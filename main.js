@@ -70,7 +70,7 @@ fastify.route({
         let responseData;
 
         fastify.log.info(`<${request.ip}> processing ${task_type.toUpperCase()} task: ${task}`)
-        switch (task_type) {
+        switch (task_type.toLowerCase()) {
             case 'fusion':
                 responseData = spawnFusionTask(task);
                 break;
@@ -92,10 +92,10 @@ fastify.route({
             if (data) {
                 fastify.log.info(`<${request.ip}> ${data}`)
             }
-            reply.send({ status: 'success', stdout: data.stdout, stderr: data.stderr }); return;
+            reply.send({ status: 'success' }); return;
         }).catch((err) => {
             fastify.log.error(`<${request.ip}> Encountered error: \n${err}`);
-            reply.status(502).send({ status: 'error', stdout: err.stdout, stderr: err.stderr }); return;
+            reply.send({ status: 'error' }); return;
         });
     }
 });
@@ -126,8 +126,6 @@ function loadTaskFile(taskFileName) {
 function validateTOTPToken(tokenToValidate) {
     try {
         const calculatedToken = totp(process.env['N8N_TOTP_SECRET_PASSPHRASE'], { ...tokenOpts });
-        fastify.log.debug(`Token to validate ${tokenToValidate} type: ${typeof tokenToValidate}`);
-        fastify.log.debug(`Calculated TOTP token ${calculatedToken} type: ${typeof calculatedToken}`);
         return tokenToValidate === calculatedToken;
 
     } catch (e) {
@@ -157,7 +155,8 @@ function spawnHHJSTask(command) {
                 timeout: process.env['HHJS_TASK_TIMEOUT_MINUTES'] * (60 * 1000), //input is milliseconds, timeout after 25min 
             }
         };
-        return spawnTask(hhjsTaskParams);
+		
+		return spawnTask(hhjsTaskParams);
     }
     fastify.log.error(`${command} not found in HHJS task list`)
     return null
@@ -186,7 +185,6 @@ function spawnTask({command, args, spawnOptions}) {
         const buffer = [];
         const errBuffer = [];
         const process = spawn(command, args, spawnOptions);
-
         process.stdout.on('data', (data) => {
             buffer.push(data)
         });
@@ -197,12 +195,12 @@ function spawnTask({command, args, spawnOptions}) {
 
         process.on('close', (exitCode) => {
             fastify.log.info(`Child process exited with code ${exitCode}`)
-            const returnData = {
+			const returnData = {
                 exitCode,
                 stdout: buffer.join(' '),
                 stderr: errBuffer.join(' ')
             }
-
+			
             exitCode === 0 ? resolve(returnData) : reject(returnData); return;
         })
     });
